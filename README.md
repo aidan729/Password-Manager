@@ -1,7 +1,9 @@
+#Password Manager
 
 This application is a work-in-progress, designed to securely manage your passwords while offering flexibility and ease of use. Currently, it serves as a basic password manager with essential features and lays the groundwork for more advanced functionality in the future.
 
 ---
+![pwm](https://github.com/user-attachments/assets/0d8eb127-82ac-4b01-a68e-e49c45a0a551)
 
 ## 🚀 Features
 
@@ -114,19 +116,21 @@ The archive system provides secure file-based storage for credentials.
 
 This project is in its early stages of development. Here’s what’s coming:
 
-- **Improved User Interface**:
-    
-    - CLI enhancements (e.g., interactive menus).
-    - GUI support using frameworks like `Slint`.
 - **Enhanced Security**:
     
-    - Two-factor authentication (2FA).
-    - Automatic password strength assessment.
+    - [ ] Password History Tracking: Store a secure history of old passwords to prevent reusing them accidentally.
+    - [ ] Breach Monitoring: Notify users if their passwords or services are part of known data breaches using APIs like HaveIBeenPwned.
+    - [ ] Customizable Password Policies: Allow users to define minimum password lengths, complexity requirements, and expiration periods.
+    - [ ] Idle Lock Mechanism: Automatically lock the app after a period of inactivity.
 - **Additional Features**:
     
-    - Password search and sorting.
-    - Integration with password autofill tools.
-    - Encrypted backups to cloud storage.
+    - [ ] Batch Import/Export:
+        - [ ] Import passwords from other password managers (CSV, JSON).
+        - [ ] Export passwords securely for backups or migration.
+    - [ ] User Roles and Permissions: Allow shared accounts with controlled access for families or teams.
+    - [ ] Multiple Vaults: Create separate vaults for personal, work, or shared accounts.
+    - [ ] Color-Coded Categories: Assign categories or tags to entries for better organization.
+    - [ ] Light/Dark Mode: User interface theme toggle for better usability.
 
 ---
 
