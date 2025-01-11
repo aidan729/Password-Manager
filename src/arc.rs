@@ -36,80 +36,61 @@ impl Archive {
         }
     }
 
-    // Add entry to archive
     pub fn add_entry(&mut self, entry: Entry) {
         self.entries.push(entry);
     }
 
-    // Save archive to an .arc file
     pub fn save(&self, file_path: &str, passphrase: &str) -> io::Result<()> {
         let file = File::create(file_path)?;
         let mut writer = BufWriter::new(file);
 
-        // Serialize entries to JSON
         let json_data = serde_json::to_string(&self.entries).unwrap();
 
-        // Compress the JSON data
         let compressed_data = compress_data(json_data.as_bytes());
 
-        // Generate a unique salt and derive the key using PBKDF2
         let salt = generate_salt();
         let key = derive_key(passphrase, &salt);
 
-        // Encrypt the compressed data
         let encrypted_data = encrypt_data(&key, &compressed_data);
 
-        // Write magic header and version
         writer.write_all(self.magic.as_bytes())?;
         writer.write_all(self.version.as_bytes())?;
 
-        // Write the salt to the file (16 bytes)
         writer.write_all(&salt)?;
 
-        // Write the encrypted data to the file
         writer.write_all(&encrypted_data)?;
 
         writer.flush()?;
         Ok(())
     }
 
-    // Load archive from an .arc file
     pub fn load(file_path: &str, passphrase: &str) -> io::Result<Self> {
         let file = OpenOptions::new().read(true).open(file_path)?;
         let mut reader = BufReader::new(file);
 
-        // Read the magic header and version
         let mut magic = [0u8; 3];
         let mut version = [0u8; 3];
         reader.read_exact(&mut magic)?;
         reader.read_exact(&mut version)?;
 
-        // Verify magic and version
         if magic != *b"arc" || version != *b"1.0" {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid .arc file format"));
         }
 
-        // Read the salt (16 bytes)
         let mut salt = [0u8; SALT_SIZE];
         reader.read_exact(&mut salt)?;
 
-        // Derive the key
         let key = derive_key(passphrase, &salt);
 
-        // Read the rest of the encrypted data
         let mut encrypted_data = Vec::new();
         reader.read_to_end(&mut encrypted_data)?;
 
-        // Decrypt the data
         let decrypted_data = decrypt_data(&key, &encrypted_data)?;
 
-        // Decompress the JSON data
         let decompressed_data = decompress_data(&decrypted_data)?;
 
-        // Deserialize the JSON data
         let entries: Vec<Entry> = serde_json::from_slice(&decompressed_data)?;
 
-        // Return the archive with the loaded entries
         Ok(Archive {
             magic: "arc".to_string(),
             version: "1.0".to_string(),

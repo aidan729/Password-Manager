@@ -1,4 +1,4 @@
-use eframe::egui::{self, CentralPanel, Context};
+use eframe::egui::{CentralPanel, Context, RichText, ScrollArea};
 pub mod util;
 pub mod arc;
 use crate::util::PasswordManager;
@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::fs;
 use std::path::PathBuf;
 use std::env;
+use copypasta::{ClipboardContext, ClipboardProvider};
 
 pub struct AppState {
     username_input: String,
@@ -15,27 +16,26 @@ pub struct AppState {
     password_manager: Arc<Mutex<PasswordManager>>,
     file_path: PathBuf,
     passphrase: String,
+    editing_entry_id: Option<u32>,
 }
 
 impl AppState {
     fn new() -> Self {
-        // Get the username from the environment and construct the file path
-        let user = env::var("USER").unwrap_or("default_user".to_string());
-        let file_path = PathBuf::from(format!("C:/Users/{}/arc/passwords.arc", user));
-        let passphrase = user.clone(); // Use the username as the passphrase for now
-        
-        // Create the directory if it doesn't exist
+        let user_dir = env::var("USERPROFILE").unwrap_or_else(|_| "C:/Users/default_user".to_string());
+        let file_path = PathBuf::from(format!("{}/arc/passwords.arc", user_dir));
+        let passphrase = user_dir.clone();
+
         if let Some(parent_dir) = file_path.parent() {
-            fs::create_dir_all(parent_dir).unwrap();
+            fs::create_dir_all(parent_dir).expect("Failed to create directory for storing passwords.");
         }
 
-        // Check if the file exists, if not create a new one with empty data
         if !file_path.exists() {
-            let mut archive = Archive::new();
-            archive.save(file_path.to_str().unwrap(), &passphrase).unwrap();
+            let archive = Archive::new();
+            if let Err(e) = archive.save(file_path.to_str().unwrap(), &passphrase) {
+                eprintln!("Failed to create initial .arc file: {:?}", e);
+            }
         }
 
-        // Load existing data
         let password_manager = Arc::new(Mutex::new(PasswordManager::new()));
         if let Ok(archive) = Archive::load(file_path.to_str().unwrap(), &passphrase) {
             for entry in archive.entries {
@@ -52,16 +52,35 @@ impl AppState {
             password_manager,
             file_path,
             passphrase,
+            editing_entry_id: None,
         }
     }
+
+    fn save_entries(&self) {
+        let mut archive = Archive::new();
+
+        {
+            let manager = self.password_manager.lock().unwrap();
+            for entry in manager.list_entries() {
+                archive.add_entry(arc::Entry {
+                    id: entry.id,
+                    username: entry.username.clone(),
+                    service: entry.service.clone(),
+                    password: entry.password.clone(),
+                });
+            }
+        }
+
+        archive.save(self.file_path.to_str().unwrap(), &self.passphrase).unwrap();
+    }
 }
+
 
 impl eframe::App for AppState {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         CentralPanel::default().show(ctx, |ui| {
             ui.heading("Password Manager");
-            
-            // Input fields
+
             ui.horizontal(|ui| {
                 ui.label("Username:");
                 ui.text_edit_singleline(&mut self.username_input);
@@ -75,64 +94,79 @@ impl eframe::App for AppState {
                 ui.text_edit_singleline(&mut self.password_input);
             });
 
-            // Add entry button
-            if ui.button("Add Entry").clicked() {
+            if ui.button(if self.editing_entry_id.is_some() { "Save Changes" } else { "Add Entry" }).clicked() {
                 let username = self.username_input.clone();
                 let service = self.service_input.clone();
                 let password = self.password_input.clone();
 
-                // Add the entry to the in-memory password manager
-                let mut manager = self.password_manager.lock().unwrap();
-                manager.add_entry(username.clone(), service.clone(), password.clone());
-
-                // Save the updated password data to the .arc file
-                let mut archive = Archive::new();
-                for entry in manager.list_entries() {
-                    archive.add_entry(arc::Entry {
-                        id: entry.id,
-                        username: entry.username.clone(),
-                        service: entry.service.clone(),
-                        password: entry.password.clone(),
-                    });
+                {
+                    let mut manager = self.password_manager.lock().unwrap();
+                    if let Some(id) = self.editing_entry_id {
+                        manager.edit_entry(id, username, service, password);
+                        self.editing_entry_id = None;
+                    } else {
+                        manager.add_entry(username, service, password);
+                    }
                 }
-                archive.save(self.file_path.to_str().unwrap(), &self.passphrase).unwrap();
 
-                // Clear input fields after adding
+                self.save_entries();
                 self.username_input.clear();
                 self.service_input.clear();
                 self.password_input.clear();
             }
 
-            // Separator for the list of stored entries
             ui.separator();
             ui.heading("Stored Entries:");
 
-            let entries = {
-                let manager = self.password_manager.lock().unwrap();
-                manager.list_entries()
-            };
+            ScrollArea::vertical().show(ui, |ui| {
+                let entries = {
+                    let manager = self.password_manager.lock().unwrap();
+                    manager.list_entries()
+                };
 
-            // Display each entry
-            for entry in entries {
-                ui.horizontal(|ui| {
-                    ui.label(format!("ID: {}", entry.id));
-                    ui.label(format!("Username: {}", entry.username));
-                    ui.label(format!("Service: {}", entry.service));
+                for entry in entries {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(format!("Username: {}", entry.username)).strong());
+                        ui.label(RichText::new(format!("Service: {}", entry.service)).strong());
 
-                    if entry.show_password {
-                        ui.label(format!("Password: {}", entry.password));
-                    }
+                        if entry.show_password {
+                            ui.label(RichText::new(format!("Password: {}", entry.password)).strong());
+                        }
 
-                    if ui.button(if entry.show_password { "Hide Password" } else { "Show Password" }).clicked() {
-                        let mut manager = self.password_manager.lock().unwrap();
-                        manager.toggle_show_password(entry.id);
-                    }
-                });
-            }
+                        if ui.button(if entry.show_password { "Hide Password" } else { "Show Password" }).clicked() {
+                            let mut manager = self.password_manager.lock().unwrap();
+                            manager.toggle_show_password(entry.id);
+                        }
+
+                        if ui.button("Copy to Clipboard").clicked() {
+                            if entry.show_password {
+                                let mut clipboard = ClipboardContext::new().unwrap();
+                                clipboard.set_contents(entry.password.clone()).unwrap();
+                            }
+                        }
+
+                        if ui.button("Edit").clicked() {
+                            self.username_input = entry.username.clone();
+                            self.service_input = entry.service.clone();
+                            self.password_input.clone();
+                            self.editing_entry_id = Some(entry.id);
+                        }
+
+                        if ui.button("Delete").clicked() {
+                            {
+                                let mut manager = self.password_manager.lock().unwrap();
+                                manager.delete_entry(entry.id);
+                            }
+                            self.save_entries();
+                        }
+                    });
+                }
+            });
         });
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
     let options = eframe::NativeOptions::default();
     eframe::run_native(

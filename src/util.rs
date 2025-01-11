@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)] // Add Clone to Entry
+#[derive(Debug, Clone)]
 pub struct Entry {
     pub id: u32,
     pub username: String,
@@ -40,5 +40,17 @@ impl PasswordManager {
         if let Some(entry) = self.entries.iter_mut().find(|e| e.id == id) {
             entry.show_password = !entry.show_password;
         }
+    }
+
+    pub fn edit_entry(&mut self, id: u32, username: String, service: String, password: String) {
+        if let Some(entry) = self.entries.iter_mut().find(|e| e.id == id) {
+            entry.username = username;
+            entry.service = service;
+            entry.password = password;
+        }
+    }
+
+    pub fn delete_entry(&mut self, id: u32) {
+        self.entries.retain(|entry| entry.id != id);
     }
 }

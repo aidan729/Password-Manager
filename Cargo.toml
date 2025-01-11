@@ -17,3 +17,9 @@ pbkdf2 = { version = "0.12", features = ["simple"] }
 sha2 = "0.10.0"
 rand = "0.8.5"
 rand_core = { version = "0.6", features = ["std"] }
+copypasta = "0.7"
+
+[[bin]]
+name = "password-manager"
+path = "src/main.rs"
+windows_subsystem = "windows" 
