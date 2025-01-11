@@ -1,9 +1,10 @@
-#Password Manager
+# Password Manager
 
 This application is a work-in-progress, designed to securely manage your passwords while offering flexibility and ease of use. Currently, it serves as a basic password manager with essential features and lays the groundwork for more advanced functionality in the future.
 
 ---
-![pwm](https://github.com/user-attachments/assets/0d8eb127-82ac-4b01-a68e-e49c45a0a551)
+
+![pwm](https://github.com/user-attachments/assets/b5b2ea5b-fe0c-414d-b587-1cba70fbf0da)
 
 ## 🚀 Features
 
